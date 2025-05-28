@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Typing Speed Test</title>
+    <link href="styles.css" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto Mono', monospace;
+            padding: 20px;
+            width: 500px;
+            height: 400px;
+            background-color: #2c2e31;
+            color: #646669;
+        }
+        .typing-container {
+            background: #323437;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+        }
+        #text-display {
+            font-size: 24px;
+            line-height: 1.5;
+            margin-bottom: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            min-height: 100px;
+            word-break: break-word;
+            user-select: none;
+            white-space: pre-wrap;
+            position: relative;
+        }
+        .word {
+            display: inline-block;
+            margin-right: 8px;
+            position: relative;
+        }
+        .correct {
+            color: #d1d0c5;
+        }
+        .incorrect {
+            color: #ca4754;
+            text-decoration: underline;
+            text-decoration-color: #ca4754;
+        }
+        .current {
+            color: #e2b714;
+        }
+        .upcoming {
+            color: #646669;
+        }
+        #input-field {
+            position: absolute;
+            opacity: 0;
+            pointer-events: none;
+        }
+        #stats {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+        }
+        .stat-box {
+            text-align: center;
+            background: #2c2e31;
+            padding: 10px;
+            border-radius: 5px;
+            flex: 1;
+            margin: 0 5px;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: #646669;
+        }
+        .stat-value {
+            font-size: 20px;
+            font-weight: bold;
+            color: #d1d0c5;
+        }
+        .instruction {
+            text-align: center;
+            color: #646669;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .cursor {
+            position: absolute;
+            width: 2px;
+            height: 1.2em;
+            background-color: #e2b714;
+            animation: blink 1s infinite;
+            display: inline-block;
+            margin-left: -1px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        @keyframes blink {
+            50% { opacity: 0; }
+        }
+        .word-wrapper {
+            display: inline-block;
+            position: relative;
+            margin-right: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="typing-container">
+        <div id="stats">
+            <div class="stat-box">
+                <div class="stat-label">Time</div>
+                <div class="stat-value" id="time">30s</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">WPM</div>
+                <div class="stat-value" id="wpm">0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">Accuracy</div>
+                <div class="stat-value" id="accuracy">0%</div>
+            </div>
+        </div>
+        <div class="instruction">start typing to begin</div>
+        <div id="text-display"></div>
+        <input id="input-field" type="text" autocomplete="off" autocapitalize="off" autocorrect="off">
+    </div>
+    <script src="typing-test.js"></script>
+</body>
+</html> 

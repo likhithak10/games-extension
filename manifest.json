@@ -17,7 +17,10 @@
         "type":"module"
     },
     "permissions":[
-        "storage"
+        "storage",
+        "windows"
+    ],
+    "host_permissions": [
+        "https://random-word-api.herokuapp.com/*"
     ]
-
 }

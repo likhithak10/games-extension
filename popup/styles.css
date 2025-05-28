@@ -2,4 +2,14 @@
 @tailwind components;
 @tailwind utilities; 
 
+body {
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+/* Ensure the popup content also respects the rounded corners */
+.container {
+    border-radius: inherit;
+}
+
 
