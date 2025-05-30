@@ -4,21 +4,14 @@ const timeDisplay = document.getElementById('time');
 const wpmDisplay = document.getElementById('wpm');
 const accuracyDisplay = document.getElementById('accuracy');
 
-// Common English words for typing practice
-const commonWords = [
+// Backup words in case API fails
+const backupWords = [
     'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I',
-    'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at',
-    'this', 'but', 'his', 'by', 'from', 'they', 'we', 'say', 'her', 'she',
-    'or', 'an', 'will', 'my', 'one', 'all', 'would', 'there', 'their', 'what',
-    'so', 'up', 'out', 'if', 'about', 'who', 'get', 'which', 'go', 'me',
-    'when', 'make', 'can', 'like', 'time', 'no', 'just', 'him', 'know', 'take',
-    'people', 'into', 'year', 'your', 'good', 'some', 'could', 'them', 'see', 'other',
-    'than', 'then', 'now', 'look', 'only', 'come', 'its', 'over', 'think', 'also',
-    'back', 'after', 'use', 'two', 'how', 'our', 'work', 'first', 'well', 'way',
-    'even', 'new', 'want', 'because', 'any', 'these', 'give', 'day', 'most', 'us'
+    'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at'
 ];
 
 let words = [];
+let wordCache = [];
 let currentWordIndex = 0;
 let currentCharIndex = 0;
 let timeLeft = 30;
@@ -28,14 +21,68 @@ let startTime;
 let totalWords = 0;
 let correctCharacters = 0;
 let totalCharacters = 0;
+let isLoadingWords = false;
 
-function generateWords(count = 50) {
-    const newWords = [];
-    for (let i = 0; i < count; i++) {
-        const randomIndex = Math.floor(Math.random() * commonWords.length);
-        newWords.push(commonWords[randomIndex]);
+// List of common word topics to get varied words
+const topics = ['freq=20', 'topics=common', 'topics=basic', 'rel_trg=word'];
+
+async function fetchWords() {
+    if (isLoadingWords) return;
+    isLoadingWords = true;
+
+    try {
+        // Randomly select a topic and get words
+        const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+        const response = await fetch(`https://api.datamuse.com/words?${randomTopic}&max=100`);
+        if (!response.ok) {
+            throw new Error('Network response was not ok');
+        }
+        const data = await response.json();
+        
+        // Filter and process the words
+        const newWords = data
+            .map(word => word.word.toLowerCase())
+            .filter(word => {
+                // Filter criteria:
+                // 1. Word length between 2 and 8 characters
+                // 2. Only contains letters
+                // 3. No repeated words
+                return word.length >= 2 && 
+                       word.length <= 8 && 
+                       /^[a-z]+$/.test(word) &&
+                       !wordCache.includes(word);
+            });
+
+        // Shuffle the words
+        const shuffledWords = newWords.sort(() => Math.random() - 0.5);
+        
+        wordCache = wordCache.concat(shuffledWords);
+        console.log('Fetched new words:', shuffledWords);
+        isLoadingWords = false;
+    } catch (error) {
+        console.error('Error fetching words:', error);
+        // Use backup words if API fails
+        const shuffledBackup = [...backupWords].sort(() => Math.random() - 0.5);
+        wordCache = wordCache.concat(shuffledBackup);
+        isLoadingWords = false;
     }
-    return newWords;
+}
+
+function getWords(count = 30) {
+    // If we need more words and we're running low in cache, fetch more
+    if (wordCache.length < count) {
+        fetchWords();
+    }
+    
+    // Get words from cache and shuffle them
+    const wordsToReturn = wordCache.splice(0, count);
+    
+    // If we're running low on cached words, fetch more for next time
+    if (wordCache.length < 50) {
+        fetchWords();
+    }
+    
+    return wordsToReturn.length > 0 ? wordsToReturn : backupWords.slice(0, count);
 }
 
 function displayWords() {
@@ -61,7 +108,7 @@ function displayWords() {
     textDisplay.innerHTML = wordElements;
 
     // Add cursor at current position if within word
-    if (currentCharIndex < words[currentWordIndex].length) {
+    if (currentCharIndex < words[currentWordIndex]?.length) {
         const currentWord = textDisplay.children[0];
         if (currentWord) {
             const chars = currentWord.getElementsByClassName('word')[0].children;
@@ -142,9 +189,9 @@ function handleInput(e) {
             currentCharIndex = 0;
             inputField.value = '';
 
-            // Generate more words if needed
+            // Get more words if needed
             if (currentWordIndex >= words.length - 10) {
-                words = words.concat(generateWords(30));
+                words = words.concat(getWords(30));
             }
         }
     } else if (currentCharIndex < currentWord.length) {
@@ -174,6 +221,11 @@ inputField.addEventListener('input', handleInput);
 inputField.addEventListener('keydown', handleKeydown);
 
 // Initial setup
-words = generateWords(50);
-displayWords();
-inputField.focus(); 
+async function initialize() {
+    await fetchWords(); // Get initial batch of words
+    words = getWords(50); // Get first 50 words for the test
+    displayWords();
+    inputField.focus();
+}
+
+initialize(); 
