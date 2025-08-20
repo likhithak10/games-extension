@@ -1,231 +1,318 @@
-const textDisplay = document.getElementById('text-display');
-const inputField = document.getElementById('input-field');
-const timeDisplay = document.getElementById('time');
-const wpmDisplay = document.getElementById('wpm');
-const accuracyDisplay = document.getElementById('accuracy');
+const words = [
+    "a", "about", "after", "again", "all", "always", "am", "an", "and", "any",
+    "are", "around", "as", "ask", "at", "ate", "away", "be", "because", "been",
+    "before", "best", "better", "big", "black", "blue", "both", "bring", "brown",
+    "but", "buy", "by", "call", "came", "can", "carry", "clean", "cold", "come",
+    "could", "cut", "did", "do", "does", "done", "down", "draw", "drink", "eat",
+    "eight", "every", "fall", "far", "fast", "find", "first", "five", "fly",
+    "for", "found", "four", "from", "full", "funny", "gave", "get", "give", "go",
+    "goes", "going", "good", "got", "gray", "green", "grow", "had", "has",
+    "have", "he", "help", "her", "here", "him", "his", "hold", "hot", "how",
+    "hurt", "i", "if", "in", "into", "is", "it", "its", "jump", "just", "keep",
+    "kind", "know", "laugh", "let", "light", "like", "line", "little", "live",
+    "long", "look", "made", "make", "many", "may", "me", "more", "most",
+    "mother", "much", "must", "my", "myself", "name", "near", "need", "never",
+    "new", "next", "night", "no", "not", "now", "number", "of", "off", "old",
+    "on", "once", "one", "only", "open", "or", "other", "our", "out", "over",
+    "own", "paper", "part", "people", "pick", "play", "please", "put", "rain",
+    "read", "red", "ride", "right", "round", "run", "said", "saw", "say", "see",
+    "seven", "shall", "she", "show", "sing", "sit", "six", "sleep", "small",
+    "so", "some", "soon", "start", "stop", "sun", "take", "tell", "ten", "thank",
+    "that", "the", "them", "then", "there", "they", "think", "this", "three",
+    "time", "to", "today", "together", "too", "try", "two", "under", "up", "use",
+    "very", "walk", "want", "was", "we", "well", "went", "were", "what", "when",
+    "where", "which", "white", "who", "why", "will", "with", "work", "would",
+    "write", "yellow", "yes", "you", "your", "computer", "phone", "table",
+    "chair", "window", "door", "book", "school", "city", "music", "family",
+    "morning", "evening", "garden", "river", "mountain", "ocean", "flower",
+    "animal", "doctor", "student", "teacher", "picture", "moment", "country",
+    "group", "process", "result", "system", "market", "program", "service",
+    "power", "story", "history", "science", "energy", "winter", "summer",
+    "spring", "autumn", "video", "letter", "machine", "future", "reason",
+    "example", "section", "practice", "bridge", "skill", "career", "memory",
+    "language", "project", "holiday", "problem", "solution", "data", "matter",
+    "product", "industry", "village", "engine", "patient", "police", "series",
+    "agency", "camera", "coffee", "culture", "design", "driver", "feature",
+    "flight", "friend", "growth", "health", "income", "island", "leader",
+    "minute", "nature", "office", "parent", "person", "record", "recent",
+    "region", "school", "signal", "society", "strength", "traffic", "travel",
+    "window", "writer", "zebra", "keyboard", "monitor", "comet"
+  ]
+  const wordsCount=words.length;
 
-// Backup words in case API fails
-const backupWords = [
-    'the', 'be', 'to', 'of', 'and', 'a', 'in', 'that', 'have', 'I',
-    'it', 'for', 'not', 'on', 'with', 'he', 'as', 'you', 'do', 'at'
-];
+// game config and state
+const VISIBLE_LINES = 3; // matches the visible height (3 * 35px)
+const LINE_HEIGHT_PX = 35; // must match CSS line-height
+let scrollLineIndex = 0;
+let lastLineIndex = 0;
 
-let words = [];
-let wordCache = [];
-let currentWordIndex = 0;
-let currentCharIndex = 0;
-let timeLeft = 30;
-let timer = null;
-let testActive = false;
-let startTime;
-let totalWords = 0;
-let correctCharacters = 0;
-let totalCharacters = 0;
-let isLoadingWords = false;
+let isStarted = false;
+let isFinished = false;
+let timerId = null;
+let startingTime = 30;
+let timeLeft = startingTime;
 
-// List of common word topics to get varied words
-const topics = ['freq=20', 'topics=common', 'topics=basic', 'rel_trg=word'];
+function updateInfo(){
+    const info = document.getElementById("info");
+    if (info) info.textContent = String(timeLeft);
+}
 
-async function fetchWords() {
-    if (isLoadingWords) return;
-    isLoadingWords = true;
-
-    try {
-        // Randomly select a topic and get words
-        const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-        const response = await fetch(`https://api.datamuse.com/words?${randomTopic}&max=100`);
-        if (!response.ok) {
-            throw new Error('Network response was not ok');
+function startTimer(){
+    if (timerId) return;
+    isStarted = true;
+    timerId = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft <= 0){
+            timeLeft = 0;
+            updateInfo();
+            endGame();
+            return;
         }
-        const data = await response.json();
-        
-        // Filter and process the words
-        const newWords = data
-            .map(word => word.word.toLowerCase())
-            .filter(word => {
-                // Filter criteria:
-                // 1. Word length between 2 and 8 characters
-                // 2. Only contains letters
-                // 3. No repeated words
-                return word.length >= 2 && 
-                       word.length <= 8 && 
-                       /^[a-z]+$/.test(word) &&
-                       !wordCache.includes(word);
+        updateInfo();
+    }, 1000);
+}
+
+function stopTimer(){
+    if (timerId){
+        clearInterval(timerId);
+        timerId = null;
+    }
+}
+
+function computeResults(){
+    const correct = document.querySelectorAll('.letter.correct').length;
+    const incorrect = document.querySelectorAll('.letter.incorrect').length;
+    const typed = correct + incorrect;
+    const minutes = startingTime / 60;
+    const wpm = minutes > 0 ? (correct / 5) / minutes : 0;
+    const accuracy = typed > 0 ? (correct / typed) * 100 : 0;
+    return {
+        correct,
+        incorrect,
+        typed,
+        wpm: Math.max(0, wpm),
+        accuracy: Math.max(0, Math.min(100, accuracy))
+    };
+}
+
+function showResultsOverlay(){
+    const game = document.getElementById('game');
+    if (!game) return;
+    const { wpm, accuracy } = computeResults();
+    const overlay = document.createElement('div');
+    overlay.id = 'result-overlay';
+    overlay.innerHTML = `
+        <div class="result-card">
+            <h2>Time's up!</h2>
+            <div class="metric">WPM: <strong>${wpm.toFixed(0)}</strong></div>
+            <div class="metric">Accuracy: <strong>${accuracy.toFixed(0)}%</strong></div>
+            <button id="overlay-new-game">new game</button>
+        </div>
+    `;
+    game.appendChild(overlay);
+    const btn = document.getElementById('overlay-new-game');
+    btn?.addEventListener('click', () => {
+        newGame();
+        game.focus();
+    });
+}
+
+function endGame(){
+    isFinished = true;
+    stopTimer();
+    const game = document.getElementById('game');
+    if (game) addClass(game, 'finished');
+    showResultsOverlay();
+}
+
+function resetTimer(){
+    stopTimer();
+    isStarted = false;
+    isFinished = false;
+    timeLeft = startingTime;
+    updateInfo();
+}
+
+function updateScrollToCurrentLine(){
+    const wordsEl = document.getElementById("words");
+    const currentWord = document.querySelector(".word.current");
+    const currentLetter = document.querySelector(".letter.current");
+    if (!wordsEl || (!currentWord && !currentLetter)) return;
+
+    const anchor = currentLetter || currentWord;
+    const currentLine = Math.floor(anchor.offsetTop / LINE_HEIGHT_PX);
+    if (currentLine !== lastLineIndex){
+        scrollLineIndex = currentLine; // place the new line at the top
+        lastLineIndex = currentLine;
+    }
+
+    wordsEl.style.transform = `translateY(-${scrollLineIndex * LINE_HEIGHT_PX}px)`;
+}
+
+function addClass(el, name){
+    el.className+= ' ' + name;
+}
+
+function removeClass(el, name){
+    el.className=el.className.replace(name, '');
+}
+
+function randomWord(){
+    const randomIndex = Math.floor(Math.random() * wordsCount);
+    return words[randomIndex];
+}
+
+function formatWord(word){
+    return `<div class="word"><span class="letter">${word.split('').join('</span><span class="letter">')}</span></div>`;
+}
+
+function newGame(){
+    const wordsEl = document.getElementById("words");
+    if (!wordsEl) return;
+    const game = document.getElementById('game');
+    if (game) removeClass(game, 'finished');
+    const existingOverlay = document.getElementById('result-overlay');
+    if (existingOverlay) existingOverlay.remove();
+    wordsEl.innerHTML = "";
+    wordsEl.style.transform = "translateY(0px)";
+    scrollLineIndex = 0;
+    lastLineIndex = 0;
+    for (let i = 0; i < 200; i++){
+        wordsEl.innerHTML += formatWord(randomWord());
+    }
+    addClass(document.querySelector(".word"), "current");
+    addClass(document.querySelector(".letter"), "current");
+    resetTimer();
+    updateScrollToCurrentLine();
+    const cursor = document.getElementById("cursor");
+    const nextLetter = document.querySelector(".letter.current");
+    const nextWord = document.querySelector(".word.current");
+    if (cursor){
+        const rect = (nextLetter || nextWord)?.getBoundingClientRect();
+        if (rect){
+            cursor.style.top = rect.top + 2 + 'px';
+            cursor.style.left = nextLetter ? (rect.left + 'px') : (rect.right + 2 + 'px');
+        }
+    }
+}
+
+document.getElementById("game").addEventListener("keyup", ev => {
+    const key = ev.key;
+    const currentWord = document.querySelector(".word.current");
+    const currentLetter = document.querySelector(".letter.current");
+    
+    const expected = currentLetter?.innerHTML || ' ';
+    const isLetter = key.length === 1 && key !== ' ';
+    const isSpace = key === ' ';
+    const isBackspace = key === 'Backspace';
+    const isFirstLetter = currentWord?.firstChild === currentLetter;
+
+    console.log(key, expected);
+
+    if (!isStarted && !isFinished && (isLetter || isSpace || isBackspace)){
+        startTimer();
+    }
+
+    if (isFinished){
+        return;
+    }
+
+    if(isLetter){
+        if (currentLetter) {
+            addClass(currentLetter, key === expected ? "correct" : "incorrect");
+            removeClass(currentLetter, 'current');
+            if (currentLetter.nextSibling){
+                addClass(currentLetter.nextSibling, 'current');
+            }
+        } else if (currentWord) {
+            const incorrectLetter = document.createElement('span');
+            incorrectLetter.innerHTML = key;
+            incorrectLetter.className = 'letter incorrect extra';
+            currentWord.appendChild(incorrectLetter);
+        }
+    }
+
+    if (isSpace) {
+        if (expected !== ' ') {
+            const lettersToInvalidate = [...document.querySelectorAll('.word.current .letter:not(.correct)')];
+            lettersToInvalidate.forEach(letter => {
+                addClass(letter, 'incorrect');
             });
-
-        // Shuffle the words
-        const shuffledWords = newWords.sort(() => Math.random() - 0.5);
-        
-        wordCache = wordCache.concat(shuffledWords);
-        console.log('Fetched new words:', shuffledWords);
-        isLoadingWords = false;
-    } catch (error) {
-        console.error('Error fetching words:', error);
-        // Use backup words if API fails
-        const shuffledBackup = [...backupWords].sort(() => Math.random() - 0.5);
-        wordCache = wordCache.concat(shuffledBackup);
-        isLoadingWords = false;
+        }
+        removeClass(currentWord, 'current');
+        addClass(currentWord.nextSibling, 'current');
+        if (currentLetter) {
+            removeClass(currentLetter, 'current');
+        }
+        addClass(currentWord.nextSibling.firstChild, 'current');
     }
-}
 
-function getWords(count = 30) {
-    // If we need more words and we're running low in cache, fetch more
-    if (wordCache.length < count) {
-        fetchWords();
-    }
-    
-    // Get words from cache and shuffle them
-    const wordsToReturn = wordCache.splice(0, count);
-    
-    // If we're running low on cached words, fetch more for next time
-    if (wordCache.length < 50) {
-        fetchWords();
-    }
-    
-    return wordsToReturn.length > 0 ? wordsToReturn : backupWords.slice(0, count);
-}
-
-function displayWords() {
-    const visibleWords = words.slice(currentWordIndex, currentWordIndex + 20);
-    const wordElements = visibleWords.map((word, index) => {
-        const isCurrentWord = index === 0;
-        const characters = word.split('').map((char, charIndex) => {
-            let className = 'upcoming';
-            if (isCurrentWord) {
-                if (charIndex < currentCharIndex) {
-                    const inputChar = inputField.value[charIndex];
-                    className = inputChar === char ? 'correct' : 'incorrect';
-                } else if (charIndex === currentCharIndex) {
-                    className = 'current';
-                }
+    if (isBackspace) {
+        if (currentLetter && isFirstLetter && currentWord.previousSibling) {
+            removeClass(currentWord, 'current');
+            addClass(currentWord.previousSibling, 'current');
+            removeClass(currentLetter, 'current');
+            const lastLetter = currentWord.previousSibling.lastChild;
+            if (lastLetter) {
+                addClass(lastLetter, 'current');
+                removeClass(lastLetter, 'incorrect');
+                removeClass(lastLetter, 'correct');
             }
-            return `<span class="${className}">${char}</span>`;
-        }).join('');
-        
-        return `<span class="word-wrapper"><span class="word">${characters}</span>${isCurrentWord && currentCharIndex === word.length ? '<span class="cursor"></span>' : ''}</span>`;
-    }).join('');
-    
-    textDisplay.innerHTML = wordElements;
-
-    // Add cursor at current position if within word
-    if (currentCharIndex < words[currentWordIndex]?.length) {
-        const currentWord = textDisplay.children[0];
-        if (currentWord) {
-            const chars = currentWord.getElementsByClassName('word')[0].children;
-            if (chars[currentCharIndex]) {
-                const cursorSpan = document.createElement('span');
-                cursorSpan.className = 'cursor';
-                chars[currentCharIndex].insertAdjacentElement('beforebegin', cursorSpan);
+        } else if (currentLetter && !isFirstLetter) {
+            removeClass(currentLetter, 'current');
+            const prevLetter = currentLetter.previousSibling;
+            if (prevLetter) {
+                addClass(prevLetter, 'current');
+                removeClass(prevLetter, 'incorrect');
+                removeClass(prevLetter, 'correct');
+            }
+        } else if (!currentLetter && currentWord) {
+            // If we're at the end of a word, move to the last letter
+            const lastLetter = currentWord.lastChild;
+            if (lastLetter) {
+                addClass(lastLetter, 'current');
+                removeClass(lastLetter, 'incorrect');
+                removeClass(lastLetter, 'correct');
             }
         }
     }
-}
 
-function calculateWPM() {
-    const timeElapsed = Math.max((Date.now() - startTime) / 1000 / 60, 0.001); // in minutes
-    return Math.round(totalWords / timeElapsed);
-}
+    // update scrolling within the game box so current line stays visible
+    updateScrollToCurrentLine();
 
-function calculateAccuracy() {
-    return totalCharacters === 0 ? 0 : Math.round((correctCharacters / totalCharacters) * 100);
-}
 
-function updateStats() {
-    if (testActive) {
-        const wpm = calculateWPM();
-        const accuracy = calculateAccuracy();
-        wpmDisplay.textContent = wpm;
-        accuracyDisplay.textContent = accuracy + '%';
-    }
-}
 
-function startTest() {
-    if (!testActive) {
-        testActive = true;
-        timeLeft = 30;
-        totalWords = 0;
-        correctCharacters = 0;
-        totalCharacters = 0;
-        startTime = Date.now();
-        inputField.focus();
-        
-        timer = setInterval(() => {
-            timeLeft--;
-            timeDisplay.textContent = timeLeft + 's';
-            
-            if (timeLeft <= 0) {
-                endTest();
-            }
-        }, 1000);
-    }
-}
-
-function endTest() {
-    testActive = false;
-    clearInterval(timer);
-    inputField.disabled = true;
+    const nextLetter = document.querySelector(".letter.current");
+    const nextWord = document.querySelector(".word.current");
+    const cursor = document.getElementById("cursor");
     
-    const finalWPM = calculateWPM();
-    const finalAccuracy = calculateAccuracy();
-    
-    textDisplay.innerHTML = `<span class="word correct">Test completed! WPM: ${finalWPM} Accuracy: ${finalAccuracy}%</span>`;
-}
-
-function handleInput(e) {
-    const currentChar = e.data;
-    if (!currentChar) return; // Handle deletions separately
-
-    if (!testActive) {
-        startTest();
-    }
-
-    const currentWord = words[currentWordIndex];
-    
-    if (currentChar === ' ') {
-        if (currentCharIndex === currentWord.length) {
-            // Completed word correctly
-            totalWords++;
-            currentWordIndex++;
-            currentCharIndex = 0;
-            inputField.value = '';
-
-            // Get more words if needed
-            if (currentWordIndex >= words.length - 10) {
-                words = words.concat(getWords(30));
+    if (cursor) {
+        const rect = (nextLetter || nextWord)?.getBoundingClientRect();
+        if (rect) {
+            cursor.style.top = rect.top + 2 + 'px';  
+            if (nextLetter) {
+                cursor.style.left = rect.left + 'px';
+            } else if (nextWord) {
+                cursor.style.left = rect.right + 2 + 'px';  
             }
         }
-    } else if (currentCharIndex < currentWord.length) {
-        totalCharacters++;
-        if (currentChar === currentWord[currentCharIndex]) {
-            correctCharacters++;
-        }
-        currentCharIndex++;
     }
+});
 
-    displayWords();
-    updateStats();
+newGame();
+
+// UI wiring
+const newGameBtn = document.querySelector('#buttons button');
+if (newGameBtn){
+    newGameBtn.addEventListener('click', () => {
+        newGame();
+        const game = document.getElementById('game');
+        game?.focus();
+    });
 }
 
-function handleKeydown(e) {
-    if (e.key === 'Backspace') {
-        if (currentCharIndex > 0) {
-            currentCharIndex--;
-            totalCharacters--;
-            displayWords();
-        }
-    }
+const gameEl = document.getElementById('game');
+if (gameEl){
+    gameEl.addEventListener('click', () => gameEl.focus());
 }
 
-// Event Listeners
-inputField.addEventListener('input', handleInput);
-inputField.addEventListener('keydown', handleKeydown);
-
-// Initial setup
-async function initialize() {
-    await fetchWords(); // Get initial batch of words
-    words = getWords(50); // Get first 50 words for the test
-    displayWords();
-    inputField.focus();
-}
-
-initialize(); 
