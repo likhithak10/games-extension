@@ -40,6 +40,115 @@ const words = [
   ]
   const wordsCount=words.length;
 
+// game config and state
+const VISIBLE_LINES = 3; // matches the visible height (3 * 35px)
+const LINE_HEIGHT_PX = 35; // must match CSS line-height
+let scrollLineIndex = 0;
+let lastLineIndex = 0;
+
+let isStarted = false;
+let isFinished = false;
+let timerId = null;
+let startingTime = 30;
+let timeLeft = startingTime;
+
+function updateInfo(){
+    const info = document.getElementById("info");
+    if (info) info.textContent = String(timeLeft);
+}
+
+function startTimer(){
+    if (timerId) return;
+    isStarted = true;
+    timerId = setInterval(() => {
+        timeLeft -= 1;
+        if (timeLeft <= 0){
+            timeLeft = 0;
+            updateInfo();
+            endGame();
+            return;
+        }
+        updateInfo();
+    }, 1000);
+}
+
+function stopTimer(){
+    if (timerId){
+        clearInterval(timerId);
+        timerId = null;
+    }
+}
+
+function computeResults(){
+    const correct = document.querySelectorAll('.letter.correct').length;
+    const incorrect = document.querySelectorAll('.letter.incorrect').length;
+    const typed = correct + incorrect;
+    const minutes = startingTime / 60;
+    const wpm = minutes > 0 ? (correct / 5) / minutes : 0;
+    const accuracy = typed > 0 ? (correct / typed) * 100 : 0;
+    return {
+        correct,
+        incorrect,
+        typed,
+        wpm: Math.max(0, wpm),
+        accuracy: Math.max(0, Math.min(100, accuracy))
+    };
+}
+
+function showResultsOverlay(){
+    const game = document.getElementById('game');
+    if (!game) return;
+    const { wpm, accuracy } = computeResults();
+    const overlay = document.createElement('div');
+    overlay.id = 'result-overlay';
+    overlay.innerHTML = `
+        <div class="result-card">
+            <h2>Time's up!</h2>
+            <div class="metric">WPM: <strong>${wpm.toFixed(0)}</strong></div>
+            <div class="metric">Accuracy: <strong>${accuracy.toFixed(0)}%</strong></div>
+            <button id="overlay-new-game">new game</button>
+        </div>
+    `;
+    game.appendChild(overlay);
+    const btn = document.getElementById('overlay-new-game');
+    btn?.addEventListener('click', () => {
+        newGame();
+        game.focus();
+    });
+}
+
+function endGame(){
+    isFinished = true;
+    stopTimer();
+    const game = document.getElementById('game');
+    if (game) addClass(game, 'finished');
+    showResultsOverlay();
+}
+
+function resetTimer(){
+    stopTimer();
+    isStarted = false;
+    isFinished = false;
+    timeLeft = startingTime;
+    updateInfo();
+}
+
+function updateScrollToCurrentLine(){
+    const wordsEl = document.getElementById("words");
+    const currentWord = document.querySelector(".word.current");
+    const currentLetter = document.querySelector(".letter.current");
+    if (!wordsEl || (!currentWord && !currentLetter)) return;
+
+    const anchor = currentLetter || currentWord;
+    const currentLine = Math.floor(anchor.offsetTop / LINE_HEIGHT_PX);
+    if (currentLine !== lastLineIndex){
+        scrollLineIndex = currentLine; // place the new line at the top
+        lastLineIndex = currentLine;
+    }
+
+    wordsEl.style.transform = `translateY(-${scrollLineIndex * LINE_HEIGHT_PX}px)`;
+}
+
 function addClass(el, name){
     el.className+= ' ' + name;
 }
@@ -58,12 +167,33 @@ function formatWord(word){
 }
 
 function newGame(){
-    document.getElementById("words").innerHTML = "";
+    const wordsEl = document.getElementById("words");
+    if (!wordsEl) return;
+    const game = document.getElementById('game');
+    if (game) removeClass(game, 'finished');
+    const existingOverlay = document.getElementById('result-overlay');
+    if (existingOverlay) existingOverlay.remove();
+    wordsEl.innerHTML = "";
+    wordsEl.style.transform = "translateY(0px)";
+    scrollLineIndex = 0;
+    lastLineIndex = 0;
     for (let i = 0; i < 200; i++){
-        document.getElementById("words").innerHTML += formatWord(randomWord());
+        wordsEl.innerHTML += formatWord(randomWord());
     }
     addClass(document.querySelector(".word"), "current");
     addClass(document.querySelector(".letter"), "current");
+    resetTimer();
+    updateScrollToCurrentLine();
+    const cursor = document.getElementById("cursor");
+    const nextLetter = document.querySelector(".letter.current");
+    const nextWord = document.querySelector(".word.current");
+    if (cursor){
+        const rect = (nextLetter || nextWord)?.getBoundingClientRect();
+        if (rect){
+            cursor.style.top = rect.top + 2 + 'px';
+            cursor.style.left = nextLetter ? (rect.left + 'px') : (rect.right + 2 + 'px');
+        }
+    }
 }
 
 document.getElementById("game").addEventListener("keyup", ev => {
@@ -78,6 +208,14 @@ document.getElementById("game").addEventListener("keyup", ev => {
     const isFirstLetter = currentWord?.firstChild === currentLetter;
 
     console.log(key, expected);
+
+    if (!isStarted && !isFinished && (isLetter || isSpace || isBackspace)){
+        startTimer();
+    }
+
+    if (isFinished){
+        return;
+    }
 
     if(isLetter){
         if (currentLetter) {
@@ -139,6 +277,10 @@ document.getElementById("game").addEventListener("keyup", ev => {
         }
     }
 
+    // update scrolling within the game box so current line stays visible
+    updateScrollToCurrentLine();
+
+
 
     const nextLetter = document.querySelector(".letter.current");
     const nextWord = document.querySelector(".word.current");
@@ -158,4 +300,19 @@ document.getElementById("game").addEventListener("keyup", ev => {
 });
 
 newGame();
+
+// UI wiring
+const newGameBtn = document.querySelector('#buttons button');
+if (newGameBtn){
+    newGameBtn.addEventListener('click', () => {
+        newGame();
+        const game = document.getElementById('game');
+        game?.focus();
+    });
+}
+
+const gameEl = document.getElementById('game');
+if (gameEl){
+    gameEl.addEventListener('click', () => gameEl.focus());
+}
 

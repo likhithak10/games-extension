@@ -4,12 +4,12 @@
 @tailwind utilities; 
 
 :root{
-    --bgColor: #333;
-    --textPrimary: #fff;
-    --textSecondary: #666;
+    --bgColor: #2b2b2b;
+    --surface: #222;
+    --border: #3a3a3a;
+    --textPrimary: #ffffff;
+    --textSecondary: #8b8b8b;
     --primaryColor: #edaf58;
-
-
 }
 
 body {
@@ -17,14 +17,19 @@ body {
     background-color: var(--bgColor);
     color: var(--textPrimary);
     font-size: 1.4rem;
+    margin: 0;
 }
             
 .container {
     border-radius: inherit;
 }
+* , *::before, *::after { box-sizing: border-box; }
+
 main{
-    width: 400px;
-    margin: 20px auto;
+    width: 100%;
+    max-width: 560px;
+    margin: 24px auto;
+    padding: 0 16px;
 }
 
 h1 svg {
@@ -38,8 +43,9 @@ h1 {
 
 #header{
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    margin: 20px 0PX 30px;
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    margin: 24px 0 28px;
 }
 
 #buttons{
@@ -51,13 +57,17 @@ h1 {
 }
 
 button{
-    background-color: rgba(225,255,255,0.2);
+    background-color: var(--primaryColor);
     border: none;
-    color: var(255,255,255,0.5);
+    color: #000;
     padding: 10px 20px;
-    border-radius: 5px;
+    border-radius: 8px;
     cursor: pointer;
-    
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+}
+button:hover{
+    filter: brightness(1.05);
 }
 
 div#game{
@@ -65,6 +75,54 @@ div#game{
     height: 105px;
     overflow: hidden;
     position: relative;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 0 12px;
+}
+
+#result-overlay{
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bgColor);
+    z-index: 2;
+    text-align: center;
+}
+
+#result-overlay .result-card{
+    background-color: #222;
+    padding: 16px 24px;
+    border-radius: 8px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.4);
+    min-width: 260px;
+}
+
+#result-overlay .result-card h2{
+    margin: 0 0 10px 0;
+    color: var(--primaryColor);
+}
+
+#result-overlay .metric{
+    margin: 8px 0;
+    font-size: 1.2rem;
+}
+
+#result-overlay button{
+    margin-top: 14px;
+    background-color: var(--primaryColor);
+    color: #000;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+#game.finished #cursor{
+    display: none;
 }
 
 div#game:focus{
@@ -84,6 +142,8 @@ div#game:focus{
     text-align: center;
     padding-top: 35px;
     color: var(--primaryColor);
+    font-size: 1.6rem;
+    text-shadow: 0 2px 10px rgba(0,0,0,0.4);
 }
 #game:focus #focus-error{
     display: none;
@@ -92,13 +152,22 @@ div#game:focus{
 div.word{
     display: inline-block;
     font-family: 'Cabin', sans-serif;
-    margin: 0 5px;
+    margin: 0 8px;
+}
+.word.current .letter:not(.correct):not(.incorrect){
+    color: #e5e5e5;
+    border-bottom: 1px dashed rgba(255,255,255,0.15);
 }
 .letter.correct{
     color: #fff;
 }
 .letter.incorrect{
     color: #f55;
+}
+.letter.incorrect.extra{
+    background: rgba(255,85,85,0.15);
+    border-radius: 3px;
+    padding: 0 2px;
 }
 
 @keyframes blink{
@@ -115,7 +184,7 @@ div.word{
 #cursor{
     display: none;
     width: 2px;
-    height: 1.6rem;
+    height: 1.8rem;
     background-color: var(--primaryColor);
     position: fixed;
     top: 188px;
