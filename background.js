@@ -4,7 +4,7 @@ chrome.runtime.onMessage.addListener(data =>{
             chrome.windows.create({
                 url: 'popup/typing-test.html',
                 type: 'popup',
-                width: 550,
+                width: 500,
                 height: 500,
                 left: 100,
                 top: 100
